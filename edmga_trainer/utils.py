@@ -5,6 +5,9 @@ import codecs
 import numpy as np
 import time
 from . import credentials
+import base64
+
+global headers
 
 class DataLoader():
     def __init__(self, add_new=False, start=0, end=0):
@@ -29,7 +32,7 @@ def load_data():
     for i, genre in enumerate(genres_list):
         data_genre = np.loadtxt(f"./data/{genre}.txt", delimiter='\n', dtype='str')
         for d in data_genre:
-            d.replace("[", "").replace("]", "")
+            d = d.replace("[", "").replace("]", "")
             data.append(np.fromstring(d, dtype=float, sep=', ').tolist())
             target.append(i)
     return (np.array(data), np.array(target))
@@ -64,13 +67,17 @@ def create_isrc_files(start, end):
         
 # ジャンルごとの教師データをテキストファイルに保存
 def download_features():
-    for i, genre in enumerate(genres_list):
+    for i, genre in enumerate(genres_list[27:]):
+        token = get_spotify_token()
+        global headers
+        headers = {'Authorization': f'Bearer {token}'}
         data = []
         ids = get_spotify_ids_of(genre)
-        print(len(ids))
+        print(f"Downloading features of {genre}...[{len(ids)}]")
         for id in ids:
             d = get_spotify_features(id)
-            data.append(d)
+            if d is not None:
+                data.append(d)
             print(d)
             print(d, file=codecs.open(f"./data/{genre}.txt", 'a', 'utf-8'))
 
@@ -78,8 +85,9 @@ def download_features():
 def get_spotify_ids_of(genre):
     spotify_ids = []
     isrc = np.loadtxt(f"./isrc/{genre}.txt", delimiter=', ', dtype='str')
+    print(f"Getting spotify IDs of {genre}...")
     for i in isrc:
-        id = get_spotify_id(i)
+        id = get_spotify_id(i.replace("[", "").replace("]", "").replace("\'", ""))
         print(id)
         if id is not None:
             spotify_ids.append(id)
@@ -88,24 +96,29 @@ def get_spotify_ids_of(genre):
 # isrcコードからspotifyのIDを取得
 def get_spotify_id(isrc):
     payload = {'q': f'isrc:{isrc}', 'type': 'track'}
-    token = get_spotify_token()
-    headers = {'Authorization': f'Bearer {token}'}
+    global headers
     r = requests.get("https://api.spotify.com/v1/search", params=payload, headers=headers)
     time.sleep(0.5)
-    items = r.json()["tracks"]["items"]
-    if len(items) >= 1:
-        return items[0]["id"]
+    try:
+        items = r.json()["tracks"]["items"]
+        if len(items) >= 1:
+            return items[0]["id"]
+    except:
+        print(r.json)
 
 def get_spotify_features(id):
     # get item
-    token = get_spotify_token()
-    headers = {'Authorization': f'Bearer {token}'}
+    global headers
     r = requests.get(f"https://api.spotify.com/v1/audio-features/{id}", headers=headers)
     time.sleep(0.5)
     item = r.json()
     
     data = []
-    data.append(item["danceability"])
+    try:
+        data.append(item["danceability"])
+    except:
+        print("not found")
+        return
     data.append(item["energy"])
     data.append(item["key"])
     data.append(item["loudness"])
@@ -122,8 +135,8 @@ def get_spotify_features(id):
 
 def get_spotify_token():
     # credentials
-    client_id = credentials["client_id"]
-    client_secret = credentials["client_secret"]
+    client_id = credentials.credentials["client_id"]
+    client_secret = credentials.credentials["client_secret"]
     
     # get token
     token_uri = 'https://accounts.spotify.com/api/token'

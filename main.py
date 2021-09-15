@@ -16,7 +16,6 @@ def main():
     model.fit(x_train, y_train)
     
     y_pred = model.predict_proba(x_test)
-    
     print("Top3 score: " + str(metrics.top_k_accuracy_score(y_test, y_pred, k=3)))
     
 if __name__ == '__main__':
