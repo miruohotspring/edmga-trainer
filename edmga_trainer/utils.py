@@ -68,9 +68,7 @@ def create_isrc_files(start, end):
 # ジャンルごとの教師データをテキストファイルに保存
 def download_features():
     for i, genre in enumerate(genres_list[27:]):
-        token = get_spotify_token()
-        global headers
-        headers = {'Authorization': f'Bearer {token}'}
+        set_token_to_headers()
         data = []
         ids = get_spotify_ids_of(genre)
         print(f"Downloading features of {genre}...[{len(ids)}]")
@@ -146,6 +144,11 @@ def get_spotify_token():
     access_token = requests.post(token_uri, data=payload, headers=headers).json()['access_token']
     
     return access_token
+
+def set_token_to_headers():
+    token = get_spotify_token()
+    global headers
+    headers = {'Authorization': f'Bearer {token}'}
 
 genres_list = [
     "140-deep-dubstep-grime",
